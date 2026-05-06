@@ -54,37 +54,35 @@ const generateMockData = () => {
 const mockData = generateMockData();
 
 // --- Server Setup ---
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
-  app.use(express.json());
+app.use(express.json());
 
-  // API Routes
-  app.get("/api/districts", (req, res) => {
-    res.json(mockData);
+// API Routes
+app.get("/api/districts", (req, res) => {
+  res.json(mockData);
+});
+
+app.get("/api/districts/:id", (req, res) => {
+  const district = mockData.find(d => d.id === req.params.id);
+  if (!district) return res.status(404).send("Not found");
+  res.json(district);
+});
+
+app.get("/api/predictive-insights", (req, res) => {
+  const highRiskDistricts = mockData.filter(d => d.riskLevel === 'High').map(d => d.name);
+  const totalRequirement = mockData.reduce((acc, d) => acc + d.vaccines.reduce((vAcc, v) => vAcc + v.requirement, 0), 0);
+  
+  res.json({
+    summary: "Forecasting platform predicts a potential outbreak cluster in the Northern districts over the next 14 days.",
+    highRiskDistricts,
+    projectedTotalRequirement: totalRequirement,
+    lastUpdated: new Date().toISOString()
   });
+});
 
-  app.get("/api/districts/:id", (req, res) => {
-    const district = mockData.find(d => d.id === req.params.id);
-    if (!district) return res.status(404).send("Not found");
-    res.json(district);
-  });
-
-  app.get("/api/predictive-insights", (req, res) => {
-    // Simulate some high-level predictive insights
-    const highRiskDistricts = mockData.filter(d => d.riskLevel === 'High').map(d => d.name);
-    const totalRequirement = mockData.reduce((acc, d) => acc + d.vaccines.reduce((vAcc, v) => vAcc + v.requirement, 0), 0);
-    
-    res.json({
-      summary: "Forecasting platform predicts a potential outbreak cluster in the Northern districts over the next 14 days.",
-      highRiskDistricts,
-      projectedTotalRequirement: totalRequirement,
-      lastUpdated: new Date().toISOString()
-    });
-  });
-
-  // Vite middleware for development
+async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -98,10 +96,16 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+}
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+// For local development in AI Studio
+if (process.env.NODE_ENV !== "production") {
+  setupVite().then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
   });
 }
 
-startServer();
+// Export for Vercel serverless function
+export default app;
