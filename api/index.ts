@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
@@ -63,22 +62,17 @@ const app = express();
 app.use(express.json());
 
 // API Routes
-app.get("/api/districts", (req, res) => {
+app.get(["/api/districts", "/districts"], (req, res) => {
   res.json(mockData);
 });
 
-// Added path-agnostic route for Vercel serverless environment
-app.get("/districts", (req, res) => {
-  res.json(mockData);
-});
-
-app.get("/api/districts/:id", (req, res) => {
+app.get(["/api/districts/:id", "/districts/:id"], (req, res) => {
   const district = mockData.find(d => d.id === req.params.id);
   if (!district) return res.status(404).send("Not found");
   res.json(district);
 });
 
-app.get("/api/predictive-insights", (req, res) => {
+app.get(["/api/predictive-insights", "/predictive-insights"], (req, res) => {
   const highRiskDistricts = mockData.filter(d => d.riskLevel === 'High').map(d => d.name);
   const totalRequirement = mockData.reduce((acc, d) => acc + d.vaccines.reduce((vAcc, v) => vAcc + v.requirement, 0), 0);
   
@@ -90,11 +84,11 @@ app.get("/api/predictive-insights", (req, res) => {
   });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", env: !!process.env.GEMINI_API_KEY });
+app.get(["/api/health", "/health"], (req, res) => {
+  res.json({ status: "ok", env: !!process.env.GEMINI_API_KEY, path: req.path });
 });
 
-app.post("/api/ai-analyze", async (req, res) => {
+app.post(["/api/ai-analyze", "/ai-analyze"], async (req, res) => {
   try {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
@@ -130,22 +124,5 @@ app.post("/api/ai-analyze", async (req, res) => {
     });
   }
 });
-
-async function startLocalServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-    
-    const PORT = 3000;
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-    });
-  }
-}
-
-startLocalServer();
 
 export default app;
