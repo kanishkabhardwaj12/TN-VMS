@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { District, PredictiveInsights } from '../types';
 import { Sparkles, TrendingUp, AlertCircle, FileText, BrainCircuit } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { 
@@ -40,21 +39,17 @@ export default function PredictiveDashboard({ insights, districts }: Props) {
     if (districts.length === 0) return;
     setAnalyzing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const highRisk = districts.filter(d => d.riskLevel === 'High').map(d => d.name).join(', ');
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `As an epidemiologist for the Tamil Nadu Health Department, analyze this situation: 
-        Statewide cases are at ${districts.reduce((a, b) => a + b.casesToday, 0)} today. 
-        High risk districts: ${highRisk}. 
-        Total vaccine stock: ${districts.reduce((a, b) => a + b.vaccines.reduce((acc, v) => acc + v.stock, 0), 0)}.
-        Provide 3 specific, data-driven recommendations for the upcoming week. Use a professional, slightly clinical tone.`
+      const response = await fetch('/api/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ districts })
       });
-      setAiAnalysis(response.text || "Unable to generate analysis at this time.");
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      setAiAnalysis(data.analysis || "Unable to generate analysis at this time.");
     } catch (error) {
       console.error("AI Analysis failed:", error);
-      setAiAnalysis("Analysis system offline. Please check connectivity.");
+      setAiAnalysis("Analysis system offline. Please check connectivity and API key configuration.");
     } finally {
       setAnalyzing(false);
     }
