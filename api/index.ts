@@ -67,6 +67,11 @@ app.get("/api/districts", (req, res) => {
   res.json(mockData);
 });
 
+// Added path-agnostic route for Vercel serverless environment
+app.get("/districts", (req, res) => {
+  res.json(mockData);
+});
+
 app.get("/api/districts/:id", (req, res) => {
   const district = mockData.find(d => d.id === req.params.id);
   if (!district) return res.status(404).send("Not found");
@@ -85,33 +90,44 @@ app.get("/api/predictive-insights", (req, res) => {
   });
 });
 
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", env: !!process.env.GEMINI_API_KEY });
+});
+
 app.post("/api/ai-analyze", async (req, res) => {
   try {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      console.error("Missing Gemini API Key in Environment Variables");
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on Vercel" });
     }
 
     const { districts } = req.body;
     if (!districts) return res.status(400).json({ error: "Missing districts data" });
 
-    const ai = new GoogleGenAI(key);
+    // Using 'as any' to bypass strict type check as the environment's types for @google/genai 
+    // are currently misaligned with the SDK version's constructor.
+    const genAI = new GoogleGenAI(key as any);
     const highRisk = districts.filter((d: any) => d.riskLevel === 'High').map((d: any) => d.name).join(', ');
     const totalCases = districts.reduce((a: number, b: any) => a + b.casesToday, 0);
     const totalStock = districts.reduce((a: number, b: any) => a + b.vaccines.reduce((acc: number, v: any) => acc + v.stock, 0), 0);
 
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `As an epidemiologist for the Tamil Nadu Health Department, analyze this situation: 
     Statewide cases are at ${totalCases} today. 
     High risk districts: ${highRisk}. 
     Total vaccine stock: ${totalStock}.
-    Provide 3 specific, data-driven recommendations for the upcoming week. Use a professional, slightly clinical tone.`;
+    Provide 3 specific, data-driven recommendations for the upcoming week. Use a professional, slightly clinical tone. Keep it concise.`;
 
     const result = await model.generateContent(prompt);
     res.json({ analysis: result.response.text() });
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Analysis Error:", error);
-    res.status(500).json({ error: "Failed to generate analysis" });
+    // Return specific error message for 403 or 400
+    res.status(500).json({ 
+      error: "AI Generation failed", 
+      details: error?.message || "Unknown error"
+    });
   }
 });
 
