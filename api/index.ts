@@ -1,10 +1,7 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { GoogleGenAI } from "@google/genai";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,20 +90,18 @@ app.post(["/api/ai-analyze", "/ai-analyze"], async (req, res) => {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
       console.error("Missing Gemini API Key in Environment Variables");
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on Vercel" });
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on Vercel. Please add it to your project environment variables." });
     }
 
     const { districts } = req.body;
     if (!districts) return res.status(400).json({ error: "Missing districts data" });
 
-    // Using 'as any' to bypass strict type check as the environment's types for @google/genai 
-    // are currently misaligned with the SDK version's constructor.
-    const genAI = new GoogleGenAI(key as any);
+    const genAI = new GoogleGenerativeAI(key);
     const highRisk = districts.filter((d: any) => d.riskLevel === 'High').map((d: any) => d.name).join(', ');
     const totalCases = districts.reduce((a: number, b: any) => a + b.casesToday, 0);
     const totalStock = districts.reduce((a: number, b: any) => a + b.vaccines.reduce((acc: number, v: any) => acc + v.stock, 0), 0);
 
-    const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `As an epidemiologist for the Tamil Nadu Health Department, analyze this situation: 
     Statewide cases are at ${totalCases} today. 
     High risk districts: ${highRisk}. 
