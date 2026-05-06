@@ -157,7 +157,6 @@ export default function PredictiveDashboard({ insights, districts }: Props) {
                   strokeWidth={2}
                   fillOpacity={1} 
                   fill="url(#colorCases)" 
-                  strokeDasharray={(data) => data.isFuture ? "5 5" : "0"}
                 />
               </AreaChart>
             </ResponsiveContainer>
